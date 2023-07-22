@@ -1,0 +1,854 @@
+import csv
+import requests
+import matplotlib.pyplot as plt
+import mysql.connector
+from tkinter import *
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+mydb = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    passwd="Evel1084599!",
+    database="pythondb"
+)
+mycursor = mydb.cursor()
+# mycursor.execute("CREATE DATABASE pythondb")
+
+
+# Download the CSV file
+req = requests.get(
+    "https://www.stats.govt.nz/assets/Uploads/Effects-of-COVID-19-on-trade/Effects-of-COVID-19-on-trade-At-15"
+    "-December-2021-provisional/Download-data/effects-of-covid-19-on-trade-at-15-december-2021-provisional.csv")
+url_content = req.content
+csv_file = open('effects-of-covid-19-on-trade-at-15-december-2021-provisional.csv', 'wb')
+csv_file.write(url_content)
+csv_file.close()
+
+# Read the CSV file into a dictionary
+with open('effects-of-covid-19-on-trade-at-15-december-2021-provisional.csv', 'r') as file:
+    reader = csv.DictReader(file)
+
+    # Create dictionaries to store
+    month_dollar_total = {}
+    month_ton_total = {}
+    country_dollar = {}
+    country_ton = {}
+    transport_dollars = {}
+    transport_ton = {}
+    weekday_dollars = {}
+    weekday_tonnes = {}
+    commodity_dollar = {}
+    commodity_tonnes = {}
+    max_month_dollars = {}
+    max_month_tonnes = {}
+    country_commodity_values = {}
+    commodity_day_dollars = {}
+    commodity_day_tonnes = {}
+
+    # Loop through each row in the CSV file
+    for row in reader:
+        # Parse the date string into a datetime object
+        month = row['Date'].split('/')[1]
+        # Convert value to a float
+        value = float(row['Value'])
+
+        measure = row['Measure']
+
+        if measure == '$':
+            # Store the value in dollars
+            if month in month_dollar_total:
+                month_dollar_total[month] += value
+            else:
+                month_dollar_total[month] = value
+        elif measure == 'Tonnes':
+            # Store the value in tonnes
+            if month in month_ton_total:
+                month_ton_total[month] += value
+            else:
+                month_ton_total[month] = value
+
+        # Convert country to a string
+        country = row['Country']
+
+        if measure == '$':
+            # Store the value in dollars
+            if country in country_dollar:
+                country_dollar[country] += value
+            else:
+                country_dollar[country] = value
+        elif measure == 'Tonnes':
+            # Store the value in tonnes
+            if country in country_ton:
+                country_ton[country] += value
+            else:
+                country_ton[country] = value
+
+        transport = row['Transport_Mode']
+
+        if measure == '$':
+            # Store the value in dollars
+            if transport in transport_dollars:
+                transport_dollars[transport] += value
+            else:
+                transport_dollars[transport] = value
+        elif measure == 'Tonnes':
+            # Store the value in tonnes
+            if transport in transport_ton:
+                transport_ton[transport] += value
+            else:
+                transport_ton[transport] = value
+
+        weekday = row['Weekday']
+
+        if measure == '$':
+            # Store the value in dollars
+            if weekday in weekday_dollars:
+                weekday_dollars[weekday] += value
+            else:
+                weekday_dollars[weekday] = value
+        elif measure == 'Tonnes':
+            # Store the value in tonnes
+            if weekday in weekday_tonnes:
+                weekday_tonnes[weekday] += value
+            else:
+                weekday_tonnes[weekday] = value
+
+        commodity = row['Commodity']
+
+        if measure == '$':
+            # Store the value in dollars
+            if commodity in commodity_dollar:
+                commodity_dollar[commodity] += value
+            else:
+                commodity_dollar[commodity] = value
+        elif measure == 'Tonnes':
+            # Store the value in tonnes
+            if commodity in commodity_tonnes:
+                commodity_tonnes[commodity] += value
+            else:
+                commodity_tonnes[commodity] = value
+
+            # extract year and month from the Date column
+        _, month, year = row['Date'].split('/')
+        if measure == '$':
+            # Store the value in dollars
+            if (month, year) in max_month_dollars:
+                max_month_dollars[(month, year)] += value
+            else:
+                max_month_dollars[(month, year)] = value
+        elif measure == 'Tonnes':
+            # Store the value in tonnes
+            if (month, year) in max_month_tonnes:
+                max_month_tonnes[(month, year)] += value
+            else:
+                max_month_tonnes[(month, year)] = value
+
+        # sort the dictionary by the total value in descending order
+        sorted_max_month_dollars = dict(sorted(max_month_dollars.items(), key=lambda item: item[1], reverse=True))
+        sorted_max_month_tonnes = dict(sorted(max_month_tonnes.items(), key=lambda item: item[1], reverse=True))
+
+        top_5_month_dollars = {}
+        top_5_month_tonnes = {}
+
+        # Get the top 5 months for each measure
+        for i, (m, y) in enumerate(sorted_max_month_dollars.keys()):
+            if i == 5:
+                break
+            top_5_month_dollars[f'{m}/{y}'] = sorted_max_month_dollars[(m, y)]
+
+        for i, (m, y) in enumerate(sorted_max_month_tonnes.keys()):
+            if i == 5:
+                break
+            top_5_month_tonnes[f'{m}/{y}'] = sorted_max_month_tonnes[(m, y)]
+
+        # ___________________________________________
+        # Create a dictionary for each country if it doesn't exist
+        if country not in country_commodity_values:
+            country_commodity_values[country] = {}
+
+            # Add the commodity value to the respective country's dictionary
+        if commodity in country_commodity_values[country]:
+            country_commodity_values[country][commodity] += value
+        else:
+            country_commodity_values[country][commodity] = value
+
+        # ___________________________________________
+
+        if measure == '$':
+            # Create a dictionary for each commodity if it doesn't exist
+            if commodity not in commodity_day_dollars:
+                commodity_day_dollars[commodity] = {}
+
+                # Add the commodity value to the respective weekday's dictionary
+            if weekday in commodity_day_dollars[commodity]:
+                commodity_day_dollars[commodity][weekday] += value
+            else:
+                commodity_day_dollars[commodity][weekday] = value
+        elif measure == 'Tonnes':
+            # Create a dictionary for each commodity if it doesn't exist
+            if commodity not in commodity_day_tonnes:
+                commodity_day_tonnes[commodity] = {}
+
+                # Add the commodity value to the respective weekday's dictionary
+            if weekday in commodity_day_tonnes[commodity]:
+                commodity_day_tonnes[commodity][weekday] += value
+            else:
+                commodity_day_tonnes[commodity][weekday] = value
+
+
+# _________________PLOTS_________________________________________
+def generate_plot1():
+    # Create a figure with two subplots
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+
+    # Plot the first dataset on the first subplot
+    ax[0].bar(month_dollar_total.keys(), month_dollar_total.values())
+    ax[0].set_xlabel("Month")
+    ax[0].set_ylabel("Total Value (million $)")
+    ax[0].set_title("Total Value in Dollars per Month")
+
+    ax[1].bar(month_ton_total.keys(), month_ton_total.values())
+    ax[1].set_xlabel("Month")
+    ax[1].set_ylabel("Total Value (tonnes)")
+    ax[1].set_title("Total Value in Tonnes per Month")
+
+    # Adjust the spacing between subplots
+    fig.subplots_adjust(wspace=0.3)
+    # Add a title to the figure
+    fig.suptitle('Total Value per Month')
+
+    plt.show()
+
+    canvas = FigureCanvasTkAgg(fig, master=root)
+    canvas.draw()
+    canvas.get_tk_widget().pack()
+
+
+# _______________________per Country_______________________________
+def generate_plot2():
+    # Create a figure with two subplots
+    fig, ax = plt.subplots(1, 2, figsize=(12, 8))
+
+    # Plot the first dataset on the first subplot
+    ax[0].bar(country_dollar.keys(), country_dollar.values())
+    ax[0].set_xlabel("Country")
+    ax[0].set_ylabel("Total Value (million $)")
+    ax[0].set_title("Total Value in Dollars per Country")
+    ax[0].tick_params(axis='x', rotation=32)
+
+    # Plot the second dataset on the second subplot
+    ax[1].bar(country_ton.keys(), country_ton.values())
+    ax[1].set_xlabel("Country")
+    ax[1].set_ylabel("Total Value (tonnes)")
+    ax[1].set_title("Total Value in Tonnes per Country")
+    ax[1].tick_params(axis='x', rotation=32)
+
+    # for axes in ax:
+    #   axes.set_xticklabels(axes.get_xticklabels(), rotation=45)
+
+    # Adjust the spacing between subplots
+    fig.subplots_adjust(wspace=0.3)
+    # Add a title to the figure
+    fig.suptitle('Total Value per Country')
+
+    # Display the plot
+    plt.show()
+
+    canvas = FigureCanvasTkAgg(fig, master=root)
+    canvas.draw()
+    canvas.get_tk_widget().pack()
+
+
+# _______________________per Transport Mode_________________________________
+def generate_plot3():
+    # Create a figure with two subplots
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+
+    # Plot the first dataset on the first subplot
+    ax[0].bar(transport_dollars.keys(), transport_dollars.values())
+    ax[0].set_xlabel("Transport Mode")
+    ax[0].set_ylabel("Total Value (million $)")
+    ax[0].set_title("Total Value in Dollars per Transport Mode")
+
+    # Plot the second dataset on the second subplot
+    ax[1].bar(transport_ton.keys(), transport_ton.values())
+    ax[1].set_xlabel("Transport Mode")
+    ax[1].set_ylabel("Total Value (tonnes)")
+    ax[1].set_title("Total Value in Tonnes per Transport Mode")
+
+    # Adjust the spacing between subplots
+    fig.subplots_adjust(wspace=0.3)
+
+    # Add a title to the figure
+    fig.suptitle('Total Value per Transport Mode')
+
+    # Display the plot
+    plt.show()
+
+    canvas = FigureCanvasTkAgg(fig, master=root)
+    canvas.draw()
+    canvas.get_tk_widget().pack()
+
+
+# ________________________per weekday_____________________________________
+def generate_plot4():
+    # Create a figure with two subplots
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+
+    # Plot the first dataset on the first subplot
+    ax[0].bar(weekday_dollars.keys(), weekday_dollars.values())
+    ax[0].set_xlabel("Day")
+    ax[0].set_ylabel("Total Value (million $)")
+    ax[0].set_title("Total Value in Dollars per Weekday")
+
+    # Plot the second dataset on the second subplot
+    ax[1].bar(weekday_tonnes.keys(), weekday_tonnes.values())
+    ax[1].set_xlabel("Day")
+    ax[1].set_ylabel("Total Value (tonnes)")
+    ax[1].set_title("Total Value in Tonnes per Weekday")
+
+    # Adjust the spacing between subplots
+    fig.subplots_adjust(wspace=0.3)
+
+    # Add a title to the figure
+    fig.suptitle('Total Value per Weekday')
+
+    # Display the plot
+    plt.show()
+
+    canvas = FigureCanvasTkAgg(fig, master=root)
+    canvas.draw()
+    canvas.get_tk_widget().pack()
+
+
+# ________________________per Commodity__________________________________
+def generate_plot5():
+    fig, ax = plt.subplots(1, 2, figsize=(10, 10))
+
+    ax[0].bar(commodity_dollar.keys(), country_dollar.values())
+    ax[0].set_xlabel("Commodity")
+    ax[0].set_ylabel("Total Value (million $)")
+    ax[0].set_title("Total Value in Dollars per Commodity")
+    ax[0].tick_params(axis='x', rotation=60)
+
+    ax[1].bar(commodity_tonnes.keys(), commodity_tonnes.values())
+    ax[1].set_xlabel("Commodity")
+    ax[1].set_ylabel("Total Value (tonnes)")
+    ax[1].set_title("Total Value in Tonnes per Commodity")
+    ax[1].tick_params(axis='x', rotation=55)
+
+    fig.suptitle('Total Value per Commodity')
+    # Adjust the layout of the subplots to prevent overlapping
+    plt.tight_layout(pad=5.0)
+
+    # Display the plot
+    plt.show()
+
+    canvas = FigureCanvasTkAgg(fig, master=root)
+    canvas.draw()
+    canvas.get_tk_widget().pack()
+
+
+# ________________________max5months__________________________________
+def generate_plot6():
+    # Create a figure with two subplots
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+
+    # Plot the top 5 months for the dollars measure
+    dollars_bars = axs[0].bar(top_5_month_dollars.keys(), top_5_month_dollars.values())
+    axs[0].bar(top_5_month_dollars.keys(), top_5_month_dollars.values())
+    axs[0].set_title('Top 5 Months (Dollars)')
+    axs[0].set_xlabel('Month(Year/Month)')
+    axs[0].set_ylabel('Total Value (million $)')
+
+    # Plot the top 5 months for the tonnes measure
+    tonnes_bars = axs[1].bar(top_5_month_tonnes.keys(), top_5_month_tonnes.values())
+    axs[1].bar(top_5_month_tonnes.keys(), top_5_month_tonnes.values())
+    axs[1].set_title('Top 5 Months (Tonnes)')
+    axs[1].set_xlabel('Month(Year/Month)')
+    axs[1].set_ylabel('Total Value (Tonnes)')
+
+    # Rotate xticks in both subplots
+    axs[0].tick_params(axis='x', rotation=35)
+    axs[1].tick_params(axis='x', rotation=35)
+
+    fig.suptitle('Top 5 Months with the highest Value')
+    plt.tight_layout(pad=5.0)
+
+    # Display the plot
+    plt.show()
+
+    canvas = FigureCanvasTkAgg(fig, master=root)
+    canvas.draw()
+    canvas.get_tk_widget().pack()
+
+
+# ______________________top5Commodities_________________________________
+def generate_plot7():
+    # Iterate over the countries and their commodity values
+    for country, commodities in country_commodity_values.items():
+        # Get the top 5 commodities with the highest values
+        top_5 = sorted(commodities.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        # Prepare data for the bar plot
+        commodity_names = [commodity for commodity, _ in top_5]
+        commodity_values = [value for _, value in top_5]
+
+        # Create a new figure and plot for each country
+        fig, ax = plt.subplots(figsize=(8, 6))
+
+        # Plot the bar chart
+        ax.bar(commodity_names, commodity_values)
+        ax.set_title(f"Top 5 Commodities for Country: {country}")
+        ax.set_xlabel("Commodity")
+        ax.set_ylabel("Value")
+
+
+        # Display the plot for each country
+        plt.show()
+
+        canvas = FigureCanvasTkAgg(fig, master=root)
+        canvas.draw()
+        canvas.get_tk_widget().pack()
+
+
+# ______________________top_day_________________________________
+def generate_plot8():
+    # Plotting the top date for each commodity
+    fig, ax = plt.subplots(1, 2, figsize=(20, 9))
+    for commodity, weekday in commodity_day_dollars.items():
+        top_day = max(weekday, key=weekday.get)
+        value = weekday[top_day]
+
+        # Plot the top 5 months for the dollars measure
+        ax[0].bar(commodity, value, label=top_day)
+        ax[0].text(commodity, value, top_day, ha='center', va='bottom')
+        ax[0].set_title('The Day with the highest Value in Dollars($)')
+        ax[0].set_xlabel('Commodity')
+        ax[0].set_ylabel('Total Value (million $)')
+
+    for commodity, weekday in commodity_day_tonnes.items():
+        top_day = max(weekday, key=weekday.get)
+        value = weekday[top_day]
+        # Plot the top 5 months for the tonnes measure
+        ax[1].bar(commodity, value, label=top_day)
+        ax[1].text(commodity, value, top_day, ha='center', va='bottom')
+        ax[1].set_title('The Day with the highest Value in Tonnes')
+        ax[1].set_xlabel('Commodity')
+        ax[1].set_ylabel('Total Value (tonnes)')
+
+    # Rotate xticks in both subplots
+    ax[0].tick_params(axis='x', rotation=70)
+    ax[1].tick_params(axis='x', rotation=14)
+
+    fig.suptitle('Day with the highest Value for each Commodity')
+    plt.tight_layout(pad=5.0)
+
+    # Display the plot
+    plt.show()
+
+    # Display the plot
+    canvas = FigureCanvasTkAgg(plt.gcf(), master=root)
+    canvas.draw()
+    canvas.get_tk_widget().pack()
+
+
+# ________________________________________________________________________G U I_______________________________________________________________________________________________________
+
+#  the root window of the GUI
+root = Tk()
+root.title("Plot Display")  # sets the title of the GUI window
+root.configure(background='#FFEFDB')  # background color of the root window
+
+# label widgets
+myLabel1 = Label(root, text="Display the plot", font="Times 32", padx=20, pady=10, background='#FFEFDB').pack()
+myLabel2 = Label(root, text="Choose a plot:", font=('Arial', 40, 'bold'), padx=10, pady=10, background='#FFEFDB').pack(
+    pady=(0, 10))
+myLabel3 = Label(root, text="1: Συνολική παρουσίαση του τζίρου (στήλη value) ανά μήνα (στις αντίστοιχες μονάδες "
+                            "μέτρησης \n 2: Συνολική παρουσίαση του τζίρου (στήλη value) για κάθε χώρα (στις "
+                            "αντίστοιχες μονάδες) "
+                            "μέτρησης \n 3: Συνολική παρουσίαση του τζίρου (στήλη value) για κάθε μέσο μεταφοράς(στις "
+                            "αντίστοιχες μονάδες μέτρησης)\n "
+                            "4: Συνολική παρουσίαση του τζίρου (στήλη value) για κάθε μέρα της εβδομάδας(στις "
+                            "αντίστοιχες μονάδες μέτρησης) "
+                            "\n5: Συνολική παρουσίαση του τζίρου (στήλη value) για κάθε κατηγορία εμπορεύματος (στις "
+                            "αντίστοιχες μονάδες μέτρησης) "
+                            "\n6: Παρουσίαση των 5 μηνών με το μεγαλύτερο τζίρο, ανεξαρτήτως μέσου μεταφοράς και "
+                            "είδους ανακυκλώσιμων ειδών "
+                            "\n7: Παρουσίαση των 5 κατηγοριών εμπορευμάτων με το μεγαλύτερο τζίρο, για κάθε χώρα \n "
+                            "8: Παρουσίαση της ημέρας με το μεγαλύτερο τζίρο, για κάθε κατηγορία εμπορεύματος "
+                            " ", font=("Calibre", 14, "bold"), background='#FFEFDB').pack(pady=(0, 10))
+r = IntVar()
+
+
+# Define a function to close the window
+def close():
+    # win.destroy()
+    root.quit()
+
+
+# Create a dropdown menu for plot selection
+plot_var = StringVar()  # μεταβλητή StringVar για την αποθήκευση της τρέχουσας επιλογής plot.
+plot_var.set("Plot 1")
+plot_choices = ['Plot 1', 'Plot 2', 'Plot 3', 'Plot 4', 'Plot 5', 'Plot 6', 'Plot 7', 'Plot 8']
+plot_dropdown = OptionMenu(root, plot_var, *plot_choices)
+plot_dropdown.pack()
+
+# Button to generate the selected plot
+generate_button = Button(root, text="Show Plot", font=("Calibre", 14, "bold"), padx=10, pady=10,
+                         fg="black",
+                         command=lambda:
+                         generate_plot1() if plot_var.get() == 'Plot 1' else
+                         generate_plot2() if plot_var.get() == 'Plot 2' else
+                         generate_plot3() if plot_var.get() == 'Plot 3' else
+                         generate_plot4() if plot_var.get() == 'Plot 4' else
+                         generate_plot5() if plot_var.get() == 'Plot 5' else
+                         generate_plot6() if plot_var.get() == 'Plot 6' else
+                         generate_plot7() if plot_var.get() == 'Plot 7' else
+                         generate_plot8() if plot_var.get() == 'Plot 8' else None).pack(pady=(0, 10))
+
+exitbutton = Button(root, text="Exit", font=("Calibre", 14, "bold"), padx=10, pady=10, bg="#CDB79E",
+                    command=close).pack()
+
+# display the window and handle user's interactions
+root.mainloop()
+
+# __________________________S Q L_______________________________________________________________________________________________________________________
+# _____________SQL1____________________
+# Connect to the MYSQL database
+mycursor.execute('CREATE TABLE IF NOT EXISTS month_values (month VARCHAR(255), dollar_total FLOAT, tonnes_total FLOAT)')
+
+# Insert the data into the table
+for month, dollar_total in month_dollar_total.items():
+    ton_total = month_ton_total.get(month, 0)
+    insert_query = '''
+            INSERT INTO month_values (month, dollar_total, tonnes_total)
+            VALUES (%s, %s, %s)
+            '''
+    data = (month, dollar_total, ton_total)
+    mycursor.execute(insert_query, data)
+
+mydb.commit()  # commit changes
+
+# Select all data from the plot_data table
+mycursor.execute('SELECT distinct month, dollar_total, tonnes_total  FROM month_values')
+
+# Fetch all rows returned by the SELECT statement
+rows = mycursor.fetchall()
+
+# Define the CSV file path
+csv_file_path = 'Months_values.csv'
+
+# Open the file in write mode
+with open(csv_file_path, 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+
+    # Write the header row
+    writer.writerow(['Month', 'Total Value in Dollars', 'Total Value in Tonnes'])
+
+    # Write the data rows
+    for row in rows:
+        writer.writerow(row)
+
+print(f"The data has been exported to {csv_file_path}.")
+
+# Commit the changes and close the connection
+mydb.commit()
+
+# ________SQL2_____________
+# Create the table if it doesn't exist
+mycursor.execute('CREATE TABLE IF NOT EXISTS Country_values (country TEXT, country_dollar FLOAT, country_tonnes FLOAT)')
+# Insert the data into the table
+for country, country_dollar in country_dollar.items():
+    country_tonnes = country_ton.get(country, 0)
+    insert_query = '''
+                INSERT INTO Country_values (country, country_dollar, country_tonnes) 
+                VALUES (%s, %s, %s)
+                '''
+    data = (country, country_dollar, country_tonnes)
+    mycursor.execute(insert_query, data)
+
+# Select all data from the plot_data table
+mycursor.execute('SELECT distinct country, country_dollar, country_tonnes FROM Country_values')
+# Fetch all rows returned by the SELECT statement
+rows = mycursor.fetchall()
+
+csv_file_path = 'Country_values.csv'
+
+# Write the data to the CSV file
+with open(csv_file_path, 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+
+    # Write the header row
+    writer.writerow(['Country', 'Total Value in Dollars', 'Total Value in Tonnes'])
+
+    # Write the data rows
+    for row in rows:
+        writer.writerow(row)
+
+print(f"The data has been exported to {csv_file_path}.")
+
+# Commit the changes
+mydb.commit()
+
+# ________SQL3________________________________________
+# Create the table if it doesn't exist
+mycursor.execute(
+    'CREATE TABLE IF NOT EXISTS Transport_Mode (transport VARCHAR(255), transport_dollars FLOAT, transport_tonnes '
+    'FLOAT)')
+
+# Insert the data into the table
+for transport, transport_dollars in transport_dollars.items():
+    transport_tonnes = transport_ton.get(transport, 0)
+    insert_query = '''
+                    INSERT INTO Transport_Mode (transport, transport_dollars, transport_tonnes) 
+                    VALUES (%s, %s, %s)
+                    '''
+    data = (transport, transport_dollars, transport_tonnes)
+    mycursor.execute(insert_query, data)
+
+# Select all data from the plot_data table
+mycursor.execute('SELECT distinct transport, transport_dollars, transport_tonnes FROM Transport_Mode')
+# Fetch all rows returned by the SELECT statement
+rows = mycursor.fetchall()
+
+csv_file_path = 'Transport_values.csv'
+
+# Write the data to the CSV file
+with open(csv_file_path, 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+
+    # Write the header row
+    writer.writerow(['Transport Mode', 'Total Value in Dollars', 'Total Value in Tonnes'])
+
+    # Write the data rows
+    for row in rows:
+        writer.writerow(row)
+
+print(f"The data has been exported to {csv_file_path}.")
+
+# Commit the changes
+mydb.commit()
+# ________SQL4_________________________________________
+# Create the table if it doesn't exist
+mycursor.execute('CREATE TABLE IF NOT EXISTS Weekday (weekday TEXT, weekday_dollars FLOAT, weekday_tonnes FLOAT)')
+
+# Insert the data into the table
+for weekday, weekday_dollars in weekday_dollars.items():
+    weekday_ton = weekday_tonnes.get(weekday, 0)
+    insert_query = '''
+                    INSERT INTO Weekday (weekday, weekday_dollars, weekday_tonnes)
+                    VALUES (%s, %s, %s)
+                   '''
+    data = (weekday, weekday_dollars, weekday_ton)
+    mycursor.execute(insert_query, data)
+
+# Select all data from the plot_data table
+mycursor.execute('SELECT distinct weekday, weekday_dollars, weekday_tonnes FROM Weekday')
+
+rows = mycursor.fetchall()
+
+csv_file_path = 'Weekday_values.csv'
+
+# Write the data to the CSV file
+with open(csv_file_path, 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+
+    # Write the header row
+    writer.writerow(['Weekday', 'Total Value in Dollars', 'Total Value in Tonnes'])
+
+    # Write the data rows
+    for row in rows:
+        writer.writerow(row)
+
+print(f"The data has been exported to {csv_file_path}.")
+
+# Commit the changes
+mydb.commit()
+# ________SQL5______________________________________
+# Create the table if it doesn't exist
+mycursor.execute('CREATE TABLE IF NOT EXISTS Commodity (commodity TEXT, commodity_dollars REAL, commodity_tonnes REAL)')
+
+# Insert the data into the table
+for commodity, commodity_dollar in commodity_dollar.items():
+    commodity_tonne = commodity_tonnes.get(commodity, 0)
+    insert_query = '''
+                        INSERT INTO Commodity (commodity, commodity_dollars, commodity_tonnes)
+                        VALUES (%s, %s, %s)
+                       '''
+    data = (commodity, commodity_dollar, commodity_tonne)
+    mycursor.execute(insert_query, data)
+# Select all data from the plot_data table
+mycursor.execute('SELECT distinct commodity, commodity_dollars, commodity_tonnes FROM Commodity')
+
+rows = mycursor.fetchall()
+
+csv_file_path = 'Commodity_values.csv'
+
+# Write the data to the CSV file
+with open(csv_file_path, 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+
+    # Write the header row
+    writer.writerow(['Commodity', 'Total Value in Dollars', 'Total Value in Tonnes'])
+
+    # Write the data rows
+    for row in rows:
+        writer.writerow(row)
+
+print(f"The data has been exported to {csv_file_path}.")
+
+# ___________SQL6_____________________________________
+# Create the table if it doesn't exist
+mycursor.execute(
+    "CREATE TABLE IF NOT EXISTS top_5_months (month_year VARCHAR(10), dollars_value FLOAT, tonnes_value FLOAT)")
+
+# Insert the data into the table for top 5 dollars
+for month_year, dollars_value in top_5_month_dollars.items():
+    tonnes_value = top_5_month_tonnes.get(month_year, 0)
+    sql = "INSERT INTO top_5_months (month_year, dollars_value, tonnes_value) VALUES (%s, %s, %s)"
+    values = (month_year, dollars_value, tonnes_value)
+    mycursor.execute(sql, values)
+
+mycursor.execute('SELECT distinct month_year, dollars_value, tonnes_value FROM top_5_months')
+
+rows = mycursor.fetchall()
+
+csv_file_path = 'Top_5_months.csv'
+
+# Write the data to the CSV file
+with open(csv_file_path, 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+
+    # Write the header row
+    writer.writerow(['Month(Month/Year)', 'Total Value in Dollars', 'Total Value in Tonnes'])
+
+    # Write the data rows
+    for row in rows:
+        writer.writerow(row)
+
+print(f"The data has been exported to {csv_file_path}.")
+# Commit the changes to the database
+mydb.commit()
+
+# ________SQL7_______________________________
+for country, commodities in country_commodity_values.items():
+    # Get the top 5 commodities with the highest values
+    top_5 = sorted(commodities.items(), key=lambda x: x[1], reverse=True)[:5]
+    commodity_names = [commodity for commodity, _ in top_5]
+    commodity_values = [value for _, value in top_5]
+    # Create the table if it doesn't exist
+    create_table_query = '''
+            CREATE TABLE IF NOT EXISTS top_commodities_country (
+                country VARCHAR(255),
+                commodity_name VARCHAR(255),
+                commodity_value FLOAT
+            )
+            '''
+    mycursor.execute(create_table_query)
+    mydb.commit()
+    # Insert the data into the table for top 5 dollars
+for commodity_names, commodity_values in top_5:
+    # Prepare the insert statement
+    insert_query = '''
+            INSERT INTO top_commodities_country (country, commodity_name, commodity_value)
+            VALUES (%s, %s, %s)
+            '''
+    data = (country, commodity_names, commodity_values)
+    mycursor.execute(insert_query, data)
+
+    mycursor.execute('SELECT distinct country, commodity_name, commodity_value FROM top_commodities_country')
+
+rows = mycursor.fetchall()
+
+csv_file_path = 'Top_commodities.csv'
+
+# Write the data to the CSV file
+with open(csv_file_path, 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+
+    # Write the header row
+    writer.writerow(['Country', 'Commodity', 'Total Value'])
+
+    # Write the data rows
+    for row in rows:
+        writer.writerow(row)
+
+    print(f"The data has been exported to {csv_file_path}.")
+    # Commit the changes to the database
+    mydb.commit()
+
+# ________SQL8_______________________________________
+for commodity, weekday in commodity_day_dollars.items():
+    top_day = max(weekday, key=weekday.get)
+    value = weekday[top_day]
+    # Create the table if it doesn't exist
+    create_table_query = '''
+                CREATE TABLE IF NOT EXISTS top_day_dollar (
+                    commodity VARCHAR(255),
+                    top_day VARCHAR(255),
+                    value FLOAT
+                )
+                '''
+    mycursor.execute(create_table_query)
+    mydb.commit()
+    # insert statement
+    insert_query = '''
+                    INSERT INTO top_day_dollar (commodity, top_day, value)
+                    VALUES (%s, %s, %s)
+                    '''
+    data = (commodity, top_day, value)
+    mycursor.execute(insert_query, data)
+    mydb.commit()
+
+mycursor.execute('SELECT distinct commodity, top_day, value FROM top_day_dollar')
+
+dollar = mycursor.fetchall()
+
+for commodity, weekday in commodity_day_tonnes.items():
+    top_day = max(weekday, key=weekday.get)
+    value = weekday[top_day]
+    # Create the table if it doesn't exist
+    create_table_query = '''
+            CREATE TABLE IF NOT EXISTS top_day_tonnes (
+                commodity VARCHAR(255),
+                top_day VARCHAR(255),
+                value FLOAT
+            )
+            '''
+    mycursor.execute(create_table_query)
+    mydb.commit()
+    # insert statement
+    insert_query = '''
+                INSERT INTO top_day_tonnes (commodity, top_day, value)
+                VALUES (%s, %s, %s)
+                '''
+    data = (commodity, top_day, value)
+    mycursor.execute(insert_query, data)
+    mydb.commit()
+
+mycursor.execute('SELECT distinct commodity, top_day, value FROM top_day_tonnes')
+
+tonnes = mycursor.fetchall()
+
+combined_data = dollar + tonnes
+csv_file_path = 'Top_day.csv'
+
+# Write the data to the CSV file
+with open(csv_file_path, 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+
+    # Write the header row
+    writer.writerow(['Commodity', 'Weekday with the highest value', 'Value'])
+
+    # Write the data rows
+    for row in combined_data:
+        writer.writerow(row)
+
+    print(f"The data has been exported to {csv_file_path}.")
+    # Commit the changes to the database
+    mydb.commit()
+
+# Close the database connection
+mycursor.close()
+mydb.close()
